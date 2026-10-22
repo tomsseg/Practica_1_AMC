@@ -24,10 +24,9 @@ public class Punto {
 
     @Override
     public String toString() {
-        return "Punto{" +
-                "id=" + id +
-                ", x=" + x +
-                ", y=" + y +
+        return "Punto " + id +" {" +
+                "x=" + x +
+                " y=" + y +
                 '}';
     }
 

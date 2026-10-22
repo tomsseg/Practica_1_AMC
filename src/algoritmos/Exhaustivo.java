@@ -11,11 +11,9 @@ public class Exhaustivo {
         for (int i = 0; i < puntos.length; i++) {
             for (int j = i+1; j < puntos.length; j++) {
                 sol.mejorSol(puntos[i],puntos[j],Distancias.euclidea(puntos[i],puntos[j]));
+                sol.incrementarDistanciasCalculadas();
             }
         }
-
-
-
         return sol;
     }
 

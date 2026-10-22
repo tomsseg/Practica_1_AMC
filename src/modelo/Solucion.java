@@ -45,10 +45,11 @@ public class Solucion {
 
     @Override
     public String toString() {
-        return "Solucion{" +
-                "A=" + A +
-                ", B=" + B +
-                ", distancia=" + distancia +
-                '}';
+        return "Solucion{ \n" +
+                " " + A +
+                "\n " + B +
+                "\n distancia = " + distancia +
+                "\n distancias calculadas = " + distanciasCalculadas +
+                "\n}";
     }
 }
