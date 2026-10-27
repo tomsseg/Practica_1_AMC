@@ -43,6 +43,8 @@ public class Solucion {
 
     public void incrementarDistanciasCalculadas(){ distanciasCalculadas++; }
 
+    public void incrementarDistanciasCalculadas(int incremento){ distanciasCalculadas+=incremento; }
+
     @Override
     public String toString() {
         return "Solucion{ \n" +
