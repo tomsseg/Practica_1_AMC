@@ -9,6 +9,7 @@ import algoritmos.DivideYVencerasMejorado;
 import datos.ArchivoTSP;
 import datos.Dataset;
 import datos.GeneradorDataset;
+import experimentos.ExperimentosRendimiento;
 
 import modelo.Punto;
 import modelo.Solucion;
@@ -21,6 +22,7 @@ import java.awt.*;
 import java.io.File;
 import java.io.IOException;
 import java.util.Locale;
+import java.util.List;
 import java.util.concurrent.ExecutionException;
 
 public class VentanaPrincipal extends JFrame {
@@ -46,6 +48,9 @@ public class VentanaPrincipal extends JFrame {
 
     private final JButton btnComprobar =
             new JButton("Comprobar estrategias");
+
+    private final JButton btnCompararTodas = new JButton("Comparar todas");
+    private final JButton btnCompararDos = new JButton("Comparar 2");
 
     private static final String CARPETA_DATOS = "datasets/";
     private static final String CARPETA_RESULTADOS = "resultados/";
@@ -94,6 +99,8 @@ public class VentanaPrincipal extends JFrame {
         botones.add(btnVertical);
         botones.add(btnCargar);
         botones.add(btnComprobar);
+        botones.add(btnCompararTodas);
+        botones.add(btnCompararDos);
 
         superior.add(botones, BorderLayout.NORTH);
 
@@ -197,6 +204,9 @@ public class VentanaPrincipal extends JFrame {
         btnComprobar.addActionListener(
                 e -> comprobarEstrategias()
         );
+
+        btnCompararTodas.addActionListener(e -> compararExperimentalmente(false));
+        btnCompararDos.addActionListener(e -> compararExperimentalmente(true));
     }
 
     // ==========================================
@@ -575,6 +585,158 @@ public class VentanaPrincipal extends JFrame {
     }
 
     // ==========================================
+    // COMPARACIONES EXPERIMENTALES
+    // ==========================================
+
+    private void compararExperimentalmente(boolean soloDos) {
+
+        String[] tipos = {"Caso general", "Misma X (caso vertical)"};
+        int tipo = JOptionPane.showOptionDialog(
+                this, "¿Qué distribución de puntos quieres utilizar?",
+                soloDos ? "Comparar dos estrategias" : "Comparar todas las estrategias",
+                JOptionPane.DEFAULT_OPTION, JOptionPane.QUESTION_MESSAGE,
+                null, tipos, tipos[0]);
+
+        if (tipo < 0) return;
+        boolean vertical = tipo == 1;
+
+        int algoritmo1 = 0;
+        int algoritmo2 = 1;
+
+        if (soloDos) {
+            JComboBox<String> selector1 = new JComboBox<>(NOMBRES);
+            JComboBox<String> selector2 = new JComboBox<>(NOMBRES);
+            selector2.setSelectedIndex(1);
+            JPanel panel = new JPanel(new GridLayout(2, 2, 8, 8));
+            panel.add(new JLabel("Primera estrategia:"));
+            panel.add(selector1);
+            panel.add(new JLabel("Segunda estrategia:"));
+            panel.add(selector2);
+
+            int respuesta = JOptionPane.showConfirmDialog(
+                    this, panel, "Seleccionar dos estrategias",
+                    JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE);
+            if (respuesta != JOptionPane.OK_OPTION) return;
+
+            algoritmo1 = selector1.getSelectedIndex();
+            algoritmo2 = selector2.getSelectedIndex();
+            if (algoritmo1 == algoritmo2) {
+                mostrarError("Debes elegir dos estrategias distintas.");
+                return;
+            }
+        }
+
+        // Valores requeridos por el enunciado. Se usan 10 datasets por tamaño.
+        final int[] tamanos = {200, 500, 1500, 5000};
+        final int repeticiones = 10;
+        final int primero = algoritmo1;
+        final int segundo = algoritmo2;
+
+        String[] columnas = {"N", "Algoritmo", "Tiempo medio (ms)", "Distancias medias"};
+        DefaultTableModel modelo = new DefaultTableModel(columnas, 0) {
+            @Override public boolean isCellEditable(int fila, int columna) {
+                return false;
+            }
+        };
+        JTable tablaExperimentos = new JTable(modelo);
+        tablaExperimentos.setAutoCreateRowSorter(true);
+        tablaExperimentos.setRowHeight(25);
+
+        JLabel estado = new JLabel("Realizando los experimentos...");
+        estado.setBorder(BorderFactory.createEmptyBorder(8, 10, 8, 10));
+
+        // La tabla y las dos graficas comparten los mismos resultados medios.
+        GraficaRendimiento graficaTiempos =
+                new GraficaRendimiento(GraficaRendimiento.Metrica.TIEMPO);
+        GraficaRendimiento graficaDistancias =
+                new GraficaRendimiento(GraficaRendimiento.Metrica.DISTANCIAS);
+
+        JTabbedPane pestanas = new JTabbedPane();
+        pestanas.addTab("Grafica tiempos", graficaTiempos);
+        pestanas.addTab("Grafica distancias", graficaDistancias);
+        pestanas.addTab("Tabla de resultados", new JScrollPane(tablaExperimentos));
+
+        JDialog dialogo = new JDialog(this,
+                soloDos ? "Comparar 2 estrategias" : "Comparar todas las estrategias", false);
+        dialogo.setLayout(new BorderLayout());
+        dialogo.add(pestanas, BorderLayout.CENTER);
+        dialogo.add(estado, BorderLayout.SOUTH);
+        dialogo.setSize(1050, 670);
+        dialogo.setMinimumSize(new Dimension(780, 520));
+        dialogo.setLocationRelativeTo(this);
+        dialogo.setVisible(true);
+
+        activarBotones(false);
+        escribirMensaje("Estudio experimental iniciado: "
+                + (vertical ? "misma X" : "caso general") + ".");
+
+        SwingWorker<List<ExperimentosRendimiento.Resultado>, Void> trabajador =
+                new SwingWorker<>() {
+                    @Override
+                    protected List<ExperimentosRendimiento.Resultado> doInBackground()
+                            throws Exception {
+                        List<ExperimentosRendimiento.Resultado> resultados;
+                        if (soloDos) {
+                            resultados = ExperimentosRendimiento.compararDos(
+                                    tamanos, repeticiones, vertical, primero, segundo);
+                        } else {
+                            resultados = ExperimentosRendimiento.compararTodas(
+                                    tamanos, repeticiones, vertical);
+                        }
+
+                        String nombreArchivo = (soloDos ? "comparar_dos_" : "comparar_todas_")
+                                + (vertical ? "vertical" : "general") + ".csv";
+                        ExperimentosRendimiento.guardarCSV(
+                                resultados, "experimentosCSV/" + nombreArchivo);
+                        return resultados;
+                    }
+
+                    @Override
+                    protected void done() {
+                        activarBotones(true);
+                        try {
+                            List<ExperimentosRendimiento.Resultado> resultados = get();
+                            for (ExperimentosRendimiento.Resultado r : resultados) {
+                                modelo.addRow(new Object[]{
+                                        r.tamano(), r.algoritmo(),
+                                        String.format(Locale.US, "%.4f", r.tiempoMedioMs()),
+                                        String.format(Locale.US, "%.2f", r.distanciasMedias())
+                                });
+                            }
+                            // Actualizar ambas graficas en el hilo de eventos de Swing.
+                            graficaTiempos.setResultados(resultados);
+                            graficaDistancias.setResultados(resultados);
+
+                            String prefijo = (soloDos ? "comparar_dos_" : "comparar_todas_")
+                                    + (vertical ? "vertical" : "general");
+                            try {
+                                graficaTiempos.guardarPNG(java.nio.file.Path.of(
+                                        "experimentosCSV/" + prefijo + "_tiempos.png"));
+                                graficaDistancias.guardarPNG(java.nio.file.Path.of(
+                                        "experimentosCSV/" + prefijo + "_distancias.png"));
+                                estado.setText("Completado: CSV y dos graficas PNG en experimentosCSV/");
+                            } catch (IOException ex) {
+                                estado.setText("Completado: CSV guardado; error al exportar PNG.");
+                                escribirMensaje("[AVISO] No se han podido guardar las graficas: "
+                                        + ex.getMessage());
+                            }
+                            escribirMensaje("[OK] Estudio experimental completado.");
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            estado.setText("Estudio interrumpido.");
+                            mostrarError("Estudio interrumpido.");
+                        } catch (ExecutionException e) {
+                            String detalle = e.getCause() == null
+                                    ? e.getMessage() : e.getCause().getMessage();
+                            estado.setText("Error en el estudio experimental.");
+                            mostrarError("No se pudo completar el estudio: " + detalle);
+                        }
+                    }
+                };
+        trabajador.execute();
+    }
+
+    // ==========================================
     // METODOS AUXILIARES
     // ==========================================
 
@@ -616,6 +778,8 @@ public class VentanaPrincipal extends JFrame {
         btnVertical.setEnabled(activar);
         btnCargar.setEnabled(activar);
         btnComprobar.setEnabled(activar);
+        btnCompararTodas.setEnabled(activar);
+        btnCompararDos.setEnabled(activar);
     }
 
     // ==========================================

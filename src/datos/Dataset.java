@@ -32,18 +32,6 @@ public class Dataset {
         this.puntos = puntos.clone();
     }
 
-    public Dataset(String nombre) {
-        if (nombre == null || nombre.isBlank()) {
-            throw new IllegalArgumentException(
-                    "El nombre del dataset no puede estar vacío"
-            );
-        }
-
-        this.nombre = nombre;
-        this.puntos = null;
-    }
-
-
 
 
     public String getNombre() {
